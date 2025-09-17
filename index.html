@@ -1,0 +1,298 @@
+<!--
+Happy Birthday — single-file website
+==================================
+
+How to use:
+1) Edit the variables in the <script> section near the top (HER_NAME, MESSAGE, PHOTOS, MUSIC_URL, VIDEO_URL, TARGET_DATE).
+2) Save this file as `index.html`.
+3) Test locally by double-clicking index.html or run `python -m http.server 8000` and open http://localhost:8000
+4) When you're ready to share, host on GitHub Pages / Netlify / Vercel (instructions in the chat) and make a QR code that points to the hosted URL.
+
+Notes:
+- Browsers often block autoplayed audio. Click the "Open Surprise" button to allow music to play.
+- Replace the placeholder image URLs with your own (either absolute URLs or files saved alongside index.html).
+-->
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Happy Birthday!</title>
+  <style>
+    :root{--bg:#fff7f9;--accent:#ff6b9a;--card:#ffffff;--muted:#666}
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial}
+    body{background:linear-gradient(180deg,#fff 0%,#ffeef6 100%);display:flex;align-items:center;justify-content:center;padding:24px}
+
+    .stage{width:100%;max-width:980px;min-height:560px;background:var(--card);border-radius:16px;box-shadow:0 12px 30px rgba(0,0,0,.12);overflow:hidden;position:relative}
+
+    /* Cover */
+    .cover{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center;background:linear-gradient(0deg, rgba(255,255,255,0.6), rgba(255,255,255,0.2));backdrop-filter: blur(2px);}
+    .title{font-size:40px;font-weight:700;color:var(--accent);letter-spacing:0.6px}
+    .subtitle{margin-top:10px;color:var(--muted);font-size:16px}
+    .open-btn{margin-top:18px;background:linear-gradient(90deg,var(--accent),#ff89a8);border:none;padding:12px 20px;color:white;border-radius:999px;font-weight:700;cursor:pointer;box-shadow:0 8px 18px rgba(255,107,154,.18)}
+
+    /* Content grid */
+    .content{display:grid;grid-template-columns:1fr 360px;gap:18px;padding:20px;height:100%}
+    .left{padding:18px}
+    .right{padding:18px;background:linear-gradient(180deg,#fff,#fff0f4);border-radius:12px}
+
+    h1{margin:0;font-size:32px;color:#222}
+    p.lead{color:#444;margin-top:8px}
+
+    /* slideshow */
+    .slideshow{position:relative;border-radius:12px;overflow:hidden;height:300px;background:#000}
+    .slideshow img{width:100%;height:100%;object-fit:cover;display:block}
+    .controls{position:absolute;left:12px;right:12px;bottom:12px;display:flex;justify-content:space-between}
+    .controls button{background:rgba(255,255,255,0.8);border:0;padding:8px 10px;border-radius:8px;cursor:pointer}
+
+    /* Gift box */
+    .gift{width:120px;height:120px;margin:22px auto;position:relative;cursor:pointer}
+    .box{width:100%;height:100%;background:linear-gradient(180deg,#ff9db8,#ff6b9a);border-radius:8px;position:relative;box-shadow:0 10px 22px rgba(0,0,0,.18)}
+    .lid{position:absolute;top:-14px;left:50%;transform:translateX(-50%);width:140px;height:40px;background:linear-gradient(180deg,#fff7, #fff3);border-radius:8px 8px 0 0;transform-origin:center bottom;transition:all .5s}
+    .lid.open{transform:translateX(-50%) rotateX(60deg) translateY(-20px)}
+
+    /* Modal surprise */
+    .modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);z-index:60;}
+    .modal-card{background:white;padding:20px;border-radius:12px;max-width:720px;width:92%;text-align:center}
+
+    /* hearts */
+    .heart{position:fixed;font-size:22px;transform:translate(-50%,-50%);pointer-events:none;opacity:1;animation:rise 2s forwards}
+    @keyframes rise{to{transform:translate(-50%,-200px) scale(.6);opacity:0}}
+
+    /* responsive */
+    @media (max-width:900px){.content{grid-template-columns:1fr;}.right{order:2}}
+
+    /* small helper */
+    .muted{color:var(--muted)}
+    .small{font-size:13px}
+  </style>
+</head>
+<body>
+  <div class="stage" id="stage">
+    <canvas id="confettiCanvas" style="position:absolute;inset:0;z-index:10;pointer-events:none"></canvas>
+
+    <div class="cover" id="cover">
+      <div class="title" id="coverTitle">Happy Birthday Dr.Khepi — <span id="coverName">Her</span>!</div>
+      <div class="subtitle">A little surprise made with love. Tap to open 💖</div>
+      <button class="open-btn" id="openBtn">Open Surprise</button>
+    </div>
+
+    <div class="content" id="content" style="opacity:0;pointer-events:none">
+      <div class="left">
+        <h1 id="greeting">Happy Birthday!</h1>
+        <p class="lead" id="personalMsg">I made this for you.</p>
+
+        <div class="slideshow" id="slideshow">
+          <img id="slideImg" src="" alt="photo" />
+          <div class="controls">
+            <button id="prev">◀ Prev</button>
+            <button id="next">Next ▶</button>
+          </div>
+        </div>
+
+        <div class="small muted" style="margin-top:12px">Tap anywhere to send floating hearts. Click the gift to open it.</div>
+
+        <div class="gift" id="gift" title="Click to open the gift">
+          <div class="lid" id="lid"></div>
+          <div class="box"></div>
+        </div>
+      </div>
+
+      <div class="right">
+        <div style="display:flex;gap:8px;align-items:center;justify-content:space-between">
+          <div class="muted small">Playlist</div>
+          <div class="small muted">Use the play button after opening</div>
+        </div>
+        <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+          <button id="playBtn" style="padding:8px 12px;border-radius:999px;border:0;cursor:pointer">▶ Play Music</button>
+          <div id="countdown" style="margin-left:auto;text-align:right">
+            <div class="muted small">Countdown</div>
+            <div id="countVal" style="font-weight:700">--:--:--</div>
+          </div>
+        </div>
+
+        <hr style="margin:14px 0;border:none;border-top:1px solid #ffe6ef" />
+        <div style="font-weight:700;margin-bottom:8px">Surprise</div>
+        <div class="muted small">Click the button to reveal a message / video</div>
+        <div style="margin-top:12px">
+          <button id="surpriseBtn" style="padding:10px;border-radius:10px;border:0;cursor:pointer;background:linear-gradient(90deg,var(--accent),#ff89a8);color:white">Reveal Surprise</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- hidden modal -->
+    <div id="modal" class="modal" style="display:none">
+      <div class="modal-card">
+        <h2 id="modalTitle">Surprise!</h2>
+        <p id="modalMsg">Open the hearts to see my message.</p>
+        <div id="videoWrap" style="margin-top:12px"></div>
+        <div style="margin-top:12px"><button id="closeModal">Close</button></div>
+      </div>
+    </div>
+
+    <audio id="bgAudio" loop></audio>
+  </div>
+
+  <script>
+    /*********** PERSONALIZE THESE VARIABLES **********/
+    const HER_NAME = "Sayantika"; // <-- replace with her name
+    const MESSAGE = `Happy 21st Birthday to the most special person in my life! 🎉💖  
+From being my best friend to becoming my life partner and soulmate, you’ve filled my world with love, laughter, and endless happiness. 🥰  
+Today, I celebrate not just your birthday, but also the beautiful bond we share. You’re my best friend, my love, my everything. 💕  
+I’m so grateful for every moment with you, and I can’t wait to make countless more memories together.  
+
+Love you forever and always ❤️  
+`; // <-- your written message
+    const PHOTOS = [
+      // replace these with your own image URLs or local file names (put them next to index.html)
+      "IMG-20250310-WA0006.jpg",
+      "photo1.jpg",
+      "photo3.jpg"
+    ];
+    const MUSIC_URL = "song.mp3"; // e.g. "music/song.mp3" or an external mp3 link - leave blank to disable
+    const VIDEO_URL = "song.mp4"; // optional: YouTube embed link (use full embed iframe later) or mp4 url
+    const TARGET_DATE = "2025-09-26T00:00:00"; // change to her birthday midnight if you want countdown
+    /**************************************************/
+
+    // DOM refs
+    const cover = document.getElementById('cover');
+    const openBtn = document.getElementById('openBtn');
+    const content = document.getElementById('content');
+    const coverName = document.getElementById('coverName');
+    const greeting = document.getElementById('greeting');
+    const personalMsg = document.getElementById('personalMsg');
+    const slideImg = document.getElementById('slideImg');
+    const prevBtn = document.getElementById('prev');
+    const nextBtn = document.getElementById('next');
+    const playBtn = document.getElementById('playBtn');
+    const bgAudio = document.getElementById('bgAudio');
+    const modal = document.getElementById('modal');
+    const surpriseBtn = document.getElementById('surpriseBtn');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalMsg = document.getElementById('modalMsg');
+    const videoWrap = document.getElementById('videoWrap');
+    const closeModal = document.getElementById('closeModal');
+    const lid = document.getElementById('lid');
+    const gift = document.getElementById('gift');
+    const confettiCanvas = document.getElementById('confettiCanvas');
+
+    // slideshow
+    let idx = 0;
+
+    function applyPersonalization(){
+      coverName.textContent = HER_NAME;
+      greeting.textContent = `Happy Birthday, ${HER_NAME}!`;
+      personalMsg.textContent = MESSAGE;
+      if(PHOTOS.length) slideImg.src = PHOTOS[0];
+      if(MUSIC_URL){ bgAudio.src = MUSIC_URL; }
+      // modal content
+      modalTitle.textContent = `For ${HER_NAME}`;
+      modalMsg.textContent = MESSAGE;
+      if(VIDEO_URL){
+        // if it's a youtube url (watch?v=) convert to embed
+        if(VIDEO_URL.includes('youtube.com') || VIDEO_URL.includes('youtu.be')){
+          let id = VIDEO_URL.split('v=')[1] || VIDEO_URL.split('.be/')[1];
+          if(id && id.includes('&')) id = id.split('&')[0];
+          videoWrap.innerHTML = `<iframe width="560" height="315" src="https://www.youtube.com/embed/${id}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+        } else {
+          videoWrap.innerHTML = `<video width="100%" controls src="${VIDEO_URL}"></video>`;
+        }
+      }
+    }
+
+    function showContent(){
+      cover.style.transition = 'opacity .6s';
+      cover.style.opacity = 0;
+      setTimeout(()=>{ cover.style.display = 'none'; }, 700);
+      content.style.opacity = 1;
+      content.style.pointerEvents = 'auto';
+      runConfetti();
+      // attempt to play audio after user gesture
+      if(bgAudio.src){
+        bgAudio.play().catch(()=>{/* autoplay blocked: user interaction needed (we had one) */});
+      }
+    }
+
+    openBtn.addEventListener('click', ()=>{
+      showContent();
+    });
+
+    prevBtn.addEventListener('click', ()=>{ idx = (idx-1+PHOTOS.length)%PHOTOS.length; slideImg.src = PHOTOS[idx]; });
+    nextBtn.addEventListener('click', ()=>{ idx = (idx+1)%PHOTOS.length; slideImg.src = PHOTOS[idx]; });
+
+    playBtn.addEventListener('click', ()=>{
+      if(!bgAudio.src){ alert('No music set. Edit MUSIC_URL in the script.'); return; }
+      if(bgAudio.paused) { bgAudio.play(); playBtn.textContent = '⏸ Pause Music'; }
+      else { bgAudio.pause(); playBtn.textContent = '▶ Play Music'; }
+    });
+
+    surpriseBtn.addEventListener('click', ()=>{ modal.style.display = 'flex'; });
+    closeModal.addEventListener('click', ()=>{ modal.style.display = 'none'; });
+
+    // floating hearts
+    document.addEventListener('click', (e)=>{
+      // ignore clicks on buttons that open/close covers
+      if(e.target.closest('button')) return;
+      createHeart(e.clientX, e.clientY);
+    });
+
+    function createHeart(x,y){
+      const el = document.createElement('div');
+      el.className = 'heart';
+      el.style.left = x+'px'; el.style.top = y+'px'; el.style.color = ['#ff6b9a','#ff9db8','#ffb3c3'][Math.floor(Math.random()*3)];
+      el.textContent = '❤';
+      document.body.appendChild(el);
+      setTimeout(()=>el.remove(),2200);
+    }
+
+    // gift box
+    let giftOpen=false;
+    gift.addEventListener('click', ()=>{
+      giftOpen = !giftOpen; lid.classList.toggle('open', giftOpen);
+      if(giftOpen) modal.style.display = 'flex';
+    });
+
+    // confetti (basic)
+    function runConfetti(){
+      const c = confettiCanvas; const ctx = c.getContext('2d');
+      function resize(){ c.width = c.clientWidth; c.height = c.clientHeight; }
+      resize(); window.addEventListener('resize', resize);
+      const pieces = [];
+      for(let i=0;i<80;i++){
+        pieces.push({x:Math.random()*c.width,y:Math.random()*c.height*0.6,vy:1+Math.random()*3, vx:(Math.random()-0.5)*2, size:4+Math.random()*8, color:['#ff6b9a','#ffd3e0','#ffb3c3','#fff8f9'][Math.floor(Math.random()*4)]});
+      }
+      let ticks=0;
+      function anim(){ ctx.clearRect(0,0,c.width,c.height);
+        for(const p of pieces){ p.x += p.vx; p.y += p.vy; p.vy += 0.02; ctx.fillStyle = p.color; ctx.fillRect(p.x,p.y,p.size,p.size*1.6);
+          if(p.y>c.height+40){ p.y = -20; p.x = Math.random()*c.width; p.vy = 1+Math.random()*3; }
+        }
+        ticks++; if(ticks<300) requestAnimationFrame(anim); else { ctx.clearRect(0,0,c.width,c.height); }
+      }
+      anim();
+    }
+
+    // countdown
+    function tickCountdown(){
+      const el = document.getElementById('countVal');
+      const target = new Date(TARGET_DATE);
+      function update(){ const now = new Date(); let diff = Math.max(0, target - now);
+        const d = Math.floor(diff/86400000); diff%=86400000;
+        const h = Math.floor(diff/3600000); diff%=3600000;
+        const m = Math.floor(diff/60000); diff%=60000;
+        const s = Math.floor(diff/1000);
+        el.textContent = `${d}d ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+      }
+      update(); setInterval(update,1000);
+    }
+
+    // init
+    applyPersonalization();
+    tickCountdown();
+
+    // Helpful: keyboard left/right for slideshow
+    document.addEventListener('keydown', (e)=>{ if(e.key==='ArrowLeft') prevBtn.click(); if(e.key==='ArrowRight') nextBtn.click(); });
+  </script>
+</body>
+</html>
